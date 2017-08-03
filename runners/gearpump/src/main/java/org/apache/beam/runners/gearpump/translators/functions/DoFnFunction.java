@@ -56,7 +56,7 @@ import org.apache.gearpump.streaming.dsl.javaapi.functions.FlatMapFunction;
  */
 @SuppressWarnings("unchecked")
 public class DoFnFunction<InputT, OutputT> extends
-    FlatMapFunction<List<RawUnionValue>, RawUnionValue> {
+    FlatMapFunction<RawUnionValue, RawUnionValue> {
 
   private static final long serialVersionUID = -5701440128544343353L;
   private final DoFnRunnerFactory<InputT, OutputT> doFnRunnerFactory;
@@ -116,23 +116,21 @@ public class DoFnFunction<InputT, OutputT> extends
   }
 
   @Override
-  public Iterator<TranslatorUtils.RawUnionValue> flatMap(List<RawUnionValue> inputs) {
+  public Iterator<TranslatorUtils.RawUnionValue> flatMap(RawUnionValue unionValue) {
     outputManager.clear();
 
     doFnRunner.startBundle();
 
-    for (RawUnionValue unionValue: inputs) {
-      final String tag = unionValue.getUnionTag();
-      if (tag.equals("0")) {
-        // main input
-        pushedBackValues.add((WindowedValue<InputT>) unionValue.getValue());
-      } else {
-        // side input
-        PCollectionView<?> sideInput = tagsToSideInputs.get(unionValue.getUnionTag());
-        WindowedValue<Iterable<?>> sideInputValue =
-            (WindowedValue<Iterable<?>>) unionValue.getValue();
-        sideInputReader.addSideInputValue(sideInput, sideInputValue);
-      }
+    final String tag = unionValue.getUnionTag();
+    if (tag.equals("0")) {
+      // main input
+      pushedBackValues.add((WindowedValue<InputT>) unionValue.getValue());
+    } else {
+      // side input
+      PCollectionView<?> sideInput = tagsToSideInputs.get(unionValue.getUnionTag());
+      WindowedValue<Iterable<?>> sideInputValue =
+          (WindowedValue<Iterable<?>>) unionValue.getValue();
+      sideInputReader.addSideInputValue(sideInput, sideInputValue);
     }
 
     for (PCollectionView<?> sideInput: sideInputs) {
