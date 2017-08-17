@@ -68,7 +68,7 @@ public class ParDoMultiOutputTranslator<InputT, OutputT> implements
         context, inputStream, tagsToSideInputs);
 
     JavaStream<TranslatorUtils.RawUnionValue> outputStream =
-        unionStream.flatMap(
+        TranslatorUtils.toList(unionStream).flatMap(
             new DoFnFunction<>(
                 context.getPipelineOptions(),
                 transform.getFn(),

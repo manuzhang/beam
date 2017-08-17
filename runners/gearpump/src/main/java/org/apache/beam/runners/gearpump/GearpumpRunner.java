@@ -69,7 +69,7 @@ public class GearpumpRunner extends PipelineRunner<GearpumpPipelineResult> {
     }
     Config config = registerSerializers(ClusterConfig.defaultConfig(),
         options.getSerializers());
-    ClientContext clientContext = getClientContext(options, config);
+    ClientContext clientContext = ClientContext.apply(config);
     options.setClientContext(clientContext);
     UserConfig userConfig = UserConfig.empty();
     JavaStreamApp streamApp = new JavaStreamApp(
@@ -80,15 +80,6 @@ public class GearpumpRunner extends PipelineRunner<GearpumpPipelineResult> {
     RunningApplication app = streamApp.submit();
 
     return new GearpumpPipelineResult(clientContext, app);
-  }
-
-  private ClientContext getClientContext(GearpumpPipelineOptions options, Config config) {
-    EmbeddedCluster cluster = options.getEmbeddedCluster();
-    if (cluster != null) {
-      return cluster.newClientContext();
-    } else {
-      return ClientContext.apply(config);
-    }
   }
 
   /**
