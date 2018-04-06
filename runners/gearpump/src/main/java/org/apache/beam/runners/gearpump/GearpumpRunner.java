@@ -31,7 +31,6 @@ import org.apache.gearpump.cluster.ClusterConfig;
 import org.apache.gearpump.cluster.UserConfig;
 import org.apache.gearpump.cluster.client.ClientContext;
 import org.apache.gearpump.cluster.client.RunningApplication;
-import org.apache.gearpump.cluster.embedded.EmbeddedCluster;
 import org.apache.gearpump.streaming.dsl.javaapi.JavaStreamApp;
 
 /**
@@ -65,7 +64,7 @@ public class GearpumpRunner extends PipelineRunner<GearpumpPipelineResult> {
     }
     Config config = registerSerializers(ClusterConfig.defaultConfig(),
         options.getSerializers());
-    ClientContext clientContext = getClientContext(options, config);
+    ClientContext clientContext = ClientContext.apply(config);
     options.setClientContext(clientContext);
     UserConfig userConfig = UserConfig.empty();
     JavaStreamApp streamApp = new JavaStreamApp(
@@ -76,15 +75,6 @@ public class GearpumpRunner extends PipelineRunner<GearpumpPipelineResult> {
     RunningApplication app = streamApp.submit();
 
     return new GearpumpPipelineResult(clientContext, app);
-  }
-
-  private ClientContext getClientContext(GearpumpPipelineOptions options, Config config) {
-    EmbeddedCluster cluster = options.getEmbeddedCluster();
-    if (cluster != null) {
-      return cluster.newClientContext();
-    } else {
-      return ClientContext.apply(config);
-    }
   }
 
   /**

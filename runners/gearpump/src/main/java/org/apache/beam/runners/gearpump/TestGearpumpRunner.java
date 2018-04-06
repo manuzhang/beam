@@ -41,7 +41,6 @@ public class TestGearpumpRunner extends PipelineRunner<GearpumpPipelineResult> {
     config = config.withValue(Constants.APPLICATION_TOTAL_RETRIES(),
       ConfigValueFactory.fromAnyRef(0));
     cluster = new EmbeddedCluster(config);
-    cluster.start();
     options.setEmbeddedCluster(cluster);
     delegate = GearpumpRunner.fromOptions(options);
   }

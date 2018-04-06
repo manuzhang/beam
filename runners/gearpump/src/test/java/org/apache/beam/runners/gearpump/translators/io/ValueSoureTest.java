@@ -50,7 +50,6 @@ public class ValueSoureTest {
     config =
         config.withValue(Constants.APPLICATION_TOTAL_RETRIES(), ConfigValueFactory.fromAnyRef(0));
     EmbeddedCluster cluster = new EmbeddedCluster(config);
-    cluster.start();
 
     options.setEmbeddedCluster(cluster);
     options.setRunner(GearpumpRunner.class);
