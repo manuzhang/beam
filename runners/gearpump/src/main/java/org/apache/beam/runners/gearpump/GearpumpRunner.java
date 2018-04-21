@@ -32,6 +32,7 @@ import org.apache.gearpump.cluster.UserConfig;
 import org.apache.gearpump.cluster.client.ClientContext;
 import org.apache.gearpump.cluster.client.RunningApplication;
 import org.apache.gearpump.streaming.dsl.javaapi.JavaStreamApp;
+import org.apache.gearpump.util.Constants;
 
 /**
  * A {@link PipelineRunner} that executes the operations in the
@@ -63,7 +64,9 @@ public class GearpumpRunner extends PipelineRunner<GearpumpPipelineResult> {
       appName = DEFAULT_APPNAME;
     }
     Config config = registerSerializers(ClusterConfig.defaultConfig(),
-        options.getSerializers());
+        options.getSerializers())
+        .withValue(Constants.APPLICATION_TOTAL_RETRIES(),
+            ConfigValueFactory.fromAnyRef(0));
     ClientContext clientContext = ClientContext.apply(config);
     options.setClientContext(clientContext);
     UserConfig userConfig = UserConfig.empty();

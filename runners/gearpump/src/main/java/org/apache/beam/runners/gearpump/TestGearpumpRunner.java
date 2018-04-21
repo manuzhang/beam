@@ -19,14 +19,12 @@
 package org.apache.beam.runners.gearpump;
 
 import com.typesafe.config.Config;
-import com.typesafe.config.ConfigValueFactory;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.PipelineRunner;
 import org.apache.beam.sdk.options.PipelineOptions;
 import org.apache.beam.sdk.options.PipelineOptionsValidator;
 import org.apache.gearpump.cluster.ClusterConfig;
 import org.apache.gearpump.cluster.embedded.EmbeddedCluster;
-import org.apache.gearpump.util.Constants;
 
 /**
  * Gearpump {@link PipelineRunner} for tests, which uses {@link EmbeddedCluster}.
@@ -34,14 +32,9 @@ import org.apache.gearpump.util.Constants;
 public class TestGearpumpRunner extends PipelineRunner<GearpumpPipelineResult> {
 
   private final GearpumpRunner delegate;
-  private final EmbeddedCluster cluster;
 
   private TestGearpumpRunner(GearpumpPipelineOptions options) {
     Config config = ClusterConfig.master(null);
-    config = config.withValue(Constants.APPLICATION_TOTAL_RETRIES(),
-      ConfigValueFactory.fromAnyRef(0));
-    cluster = new EmbeddedCluster(config);
-    options.setEmbeddedCluster(cluster);
     delegate = GearpumpRunner.fromOptions(options);
   }
 
@@ -55,7 +48,6 @@ public class TestGearpumpRunner extends PipelineRunner<GearpumpPipelineResult> {
   public GearpumpPipelineResult run(Pipeline pipeline) {
     GearpumpPipelineResult result = delegate.run(pipeline);
     result.waitUntilFinish();
-    cluster.stop();
     return result;
   }
 }
