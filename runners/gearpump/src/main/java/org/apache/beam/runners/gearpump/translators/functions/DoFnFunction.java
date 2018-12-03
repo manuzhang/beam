@@ -44,7 +44,7 @@ import org.apache.beam.sdk.util.WindowedValue;
 import org.apache.beam.sdk.values.PCollectionView;
 import org.apache.beam.sdk.values.TupleTag;
 import org.apache.beam.sdk.values.WindowingStrategy;
-import org.apache.gearpump.streaming.dsl.javaapi.functions.FlatMapFunction;
+import io.gearpump.streaming.dsl.javaapi.functions.FlatMapFunction;
 
 /** Gearpump {@link FlatMapFunction} wrapper over Beam {@link DoFn}. */
 @SuppressWarnings("unchecked")
@@ -96,7 +96,10 @@ public class DoFnFunction<InputT, OutputT>
   public void setup() {
     sideInputReader = new SideInputHandler(sideInputs, InMemoryStateInternals.<Void>forKey(null));
     doFnInvoker = DoFnInvokers.invokerFor(doFn);
-    doFnInvoker.invokeSetup();
+
+    if (doFnInvoker != null) {
+      doFnInvoker.invokeSetup();
+    }
 
     doFnRunner = doFnRunnerFactory.createRunner(sideInputReader);
 
@@ -106,7 +109,9 @@ public class DoFnFunction<InputT, OutputT>
 
   @Override
   public void teardown() {
-    doFnInvoker.invokeTeardown();
+    if (doFnInvoker != null) {
+      doFnInvoker.invokeTeardown();
+    }
   }
 
   @Override

@@ -20,7 +20,7 @@ package org.apache.beam.runners.gearpump.translators;
 import java.util.List;
 import org.apache.beam.sdk.util.WindowedValue;
 import org.apache.beam.sdk.values.PCollectionView;
-import org.apache.gearpump.streaming.dsl.javaapi.JavaStream;
+import io.gearpump.streaming.dsl.javaapi.JavaStream;
 
 /** CreateGearpumpPCollectionView bridges input stream to down stream transforms. */
 public class CreateGearpumpPCollectionViewTranslator<ElemT, ViewT>

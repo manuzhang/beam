@@ -27,7 +27,7 @@ import org.apache.beam.sdk.transforms.windowing.BoundedWindow;
 import org.apache.beam.sdk.transforms.windowing.GlobalWindow;
 import org.apache.beam.sdk.transforms.windowing.IntervalWindow;
 import org.apache.beam.sdk.values.KV;
-import org.apache.gearpump.streaming.dsl.window.impl.Window;
+import io.gearpump.streaming.dsl.window.impl.Window;
 import org.junit.Test;
 
 /** Tests for {@link TranslatorUtils}. */

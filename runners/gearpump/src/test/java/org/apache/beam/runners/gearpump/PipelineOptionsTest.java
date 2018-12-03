@@ -28,8 +28,8 @@ import java.io.IOException;
 import java.util.Map;
 import org.apache.beam.sdk.options.PipelineOptions;
 import org.apache.beam.sdk.options.PipelineOptionsFactory;
-import org.apache.gearpump.cluster.ClusterConfig;
-import org.apache.gearpump.cluster.embedded.EmbeddedCluster;
+import io.gearpump.cluster.ClusterConfig;
+import io.gearpump.cluster.embedded.EmbeddedCluster;
 import org.junit.Test;
 
 /** Tests for {@link GearpumpPipelineOptions}. */

@@ -24,7 +24,7 @@ import static org.mockito.Mockito.when;
 
 import org.apache.beam.sdk.values.PCollectionView;
 import org.apache.beam.sdk.values.PValue;
-import org.apache.gearpump.streaming.dsl.javaapi.JavaStream;
+import io.gearpump.streaming.dsl.javaapi.JavaStream;
 import org.junit.Test;
 
 /** Tests for {@link CreateGearpumpPCollectionViewTranslator}. */

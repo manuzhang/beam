@@ -27,12 +27,16 @@ import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.PipelineRunner;
 import org.apache.beam.sdk.options.PipelineOptions;
 import org.apache.beam.sdk.options.PipelineOptionsValidator;
-import org.apache.gearpump.cluster.ClusterConfig;
-import org.apache.gearpump.cluster.UserConfig;
-import org.apache.gearpump.cluster.client.ClientContext;
-import org.apache.gearpump.cluster.client.RunningApplication;
-import org.apache.gearpump.cluster.embedded.EmbeddedCluster;
-import org.apache.gearpump.streaming.dsl.javaapi.JavaStreamApp;
+import io.gearpump.cluster.ClusterConfig;
+import io.gearpump.cluster.UserConfig;
+import io.gearpump.cluster.client.ClientContext;
+import io.gearpump.cluster.client.RemoteRuntimeEnvironment;
+import io.gearpump.cluster.client.RunningApplication;
+import io.gearpump.cluster.client.RuntimeEnvironment;
+import io.gearpump.cluster.embedded.EmbeddedCluster;
+import io.gearpump.cluster.embedded.EmbeddedRuntimeEnvironment;
+import io.gearpump.util.Constants;
+import io.gearpump.streaming.dsl.javaapi.JavaStreamApp;
 
 /**
  * A {@link PipelineRunner} that executes the operations in the pipeline by first translating them
@@ -63,7 +67,13 @@ public class GearpumpRunner extends PipelineRunner<GearpumpPipelineResult> {
       appName = DEFAULT_APPNAME;
     }
     Config config = registerSerializers(ClusterConfig.defaultConfig(), options.getSerializers());
-    ClientContext clientContext = getClientContext(options, config);
+    if (options.getRemote()) {
+      RuntimeEnvironment.setRuntimeEnv(new RemoteRuntimeEnvironment());
+    } else {
+      RuntimeEnvironment.setRuntimeEnv(new EmbeddedRuntimeEnvironment());
+      config = config.withValue(Constants.APPLICATION_TOTAL_RETRIES(), ConfigValueFactory.fromAnyRef(0));
+    }
+    ClientContext clientContext = ClientContext.apply(config);
     options.setClientContext(clientContext);
     UserConfig userConfig = UserConfig.empty();
     JavaStreamApp streamApp = new JavaStreamApp(appName, clientContext, userConfig);
@@ -73,15 +83,6 @@ public class GearpumpRunner extends PipelineRunner<GearpumpPipelineResult> {
     RunningApplication app = streamApp.submit();
 
     return new GearpumpPipelineResult(clientContext, app);
-  }
-
-  private ClientContext getClientContext(GearpumpPipelineOptions options, Config config) {
-    EmbeddedCluster cluster = options.getEmbeddedCluster();
-    if (cluster != null) {
-      return cluster.newClientContext();
-    } else {
-      return ClientContext.apply(config);
-    }
   }
 
   /** register class with default kryo serializers. */

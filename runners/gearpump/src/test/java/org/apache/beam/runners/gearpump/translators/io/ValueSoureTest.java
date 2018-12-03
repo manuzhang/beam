@@ -33,9 +33,9 @@ import org.apache.beam.sdk.io.Read;
 import org.apache.beam.sdk.options.PipelineOptionsFactory;
 import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.transforms.ParDo;
-import org.apache.gearpump.cluster.ClusterConfig;
-import org.apache.gearpump.cluster.embedded.EmbeddedCluster;
-import org.apache.gearpump.util.Constants;
+import io.gearpump.cluster.ClusterConfig;
+import io.gearpump.cluster.embedded.EmbeddedCluster;
+import io.gearpump.util.Constants;
 import org.junit.Assert;
 import org.junit.Test;
 

@@ -23,23 +23,18 @@ import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.PipelineRunner;
 import org.apache.beam.sdk.options.PipelineOptions;
 import org.apache.beam.sdk.options.PipelineOptionsValidator;
-import org.apache.gearpump.cluster.ClusterConfig;
-import org.apache.gearpump.cluster.embedded.EmbeddedCluster;
-import org.apache.gearpump.util.Constants;
+import io.gearpump.cluster.client.ClientContext;
+import io.gearpump.cluster.ClusterConfig;
+import io.gearpump.cluster.embedded.EmbeddedCluster;
+import io.gearpump.util.Constants;
 
 /** Gearpump {@link PipelineRunner} for tests, which uses {@link EmbeddedCluster}. */
 public class TestGearpumpRunner extends PipelineRunner<GearpumpPipelineResult> {
 
   private final GearpumpRunner delegate;
-  private final EmbeddedCluster cluster;
 
   private TestGearpumpRunner(GearpumpPipelineOptions options) {
-    Config config = ClusterConfig.master(null);
-    config =
-        config.withValue(Constants.APPLICATION_TOTAL_RETRIES(), ConfigValueFactory.fromAnyRef(0));
-    cluster = new EmbeddedCluster(config);
-    cluster.start();
-    options.setEmbeddedCluster(cluster);
+    options.setRemote(false);
     delegate = GearpumpRunner.fromOptions(options);
   }
 
@@ -53,7 +48,8 @@ public class TestGearpumpRunner extends PipelineRunner<GearpumpPipelineResult> {
   public GearpumpPipelineResult run(Pipeline pipeline) {
     GearpumpPipelineResult result = delegate.run(pipeline);
     result.waitUntilFinish();
-    cluster.stop();
+    ClientContext client = result.getClientContext();
+    client.close();
     return result;
   }
 }

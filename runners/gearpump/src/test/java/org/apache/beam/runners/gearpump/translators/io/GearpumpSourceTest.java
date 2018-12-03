@@ -30,9 +30,9 @@ import org.apache.beam.sdk.options.PipelineOptionsFactory;
 import org.apache.beam.sdk.transforms.windowing.BoundedWindow;
 import org.apache.beam.sdk.util.WindowedValue;
 import org.apache.beam.sdk.values.TimestampedValue;
-import org.apache.gearpump.DefaultMessage;
-import org.apache.gearpump.Message;
-import org.apache.gearpump.streaming.source.Watermark;
+import io.gearpump.DefaultMessage;
+import io.gearpump.Message;
+import io.gearpump.streaming.source.Watermark;
 import org.junit.Assert;
 import org.junit.Test;
 
