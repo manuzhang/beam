@@ -1,0 +1,16 @@
+language:
+- scala
+sudo: required
+dist: trusty
+jdk:
+- oraclejdk8
+scala:
+- 2.12.7
+cache:
+  directories:
+  - $HOME/.m2/repository
+  - $HOME/.sbt
+script:
+- ./gradlew :beam-runners-gearpump:validatesRunnerStreaming    
+install:
+- git clone https://github.com/gearpump/gearpump && cd gearpump && sbt publishM2 && cd -
