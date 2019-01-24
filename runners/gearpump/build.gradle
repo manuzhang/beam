@@ -30,7 +30,7 @@ description = "Apache Beam :: Runners :: Gearpump"
  */
 evaluationDependsOn(":beam-sdks-java-core")
 
-def gearpump_version = "0.9.0"
+def gearpump_version = "0.9.1-SNAPSHOT"
 
 configurations {
   validatesRunner
@@ -81,7 +81,6 @@ task validatesRunnerStreaming(type: Test) {
     excludeCategories 'org.apache.beam.sdk.testing.UsesCommittedMetrics'
     excludeCategories 'org.apache.beam.sdk.testing.UsesTestStream'
     excludeCategories 'org.apache.beam.sdk.testing.UsesCustomWindowMerging'
-    excludeCategories 'org.apache.beam.sdk.testing.UsesParDoLifecycle'
     excludeCategories 'org.apache.beam.sdk.testing.UsesImpulse'
     excludeCategories 'org.apache.beam.sdk.testing.UsesMetricsPusher'
   }
