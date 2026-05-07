@@ -33,6 +33,7 @@ import org.apache.beam.vendor.guava.v32_1_2_jre.com.google.common.annotations.Vi
 import org.apache.beam.vendor.guava.v32_1_2_jre.com.google.common.base.MoreObjects;
 import org.apache.beam.vendor.guava.v32_1_2_jre.com.google.common.collect.ImmutableList;
 import org.apache.beam.vendor.guava.v32_1_2_jre.com.google.common.collect.ImmutableMap;
+import org.apache.iceberg.ChangelogUtil;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.catalog.TableIdentifier;
 import org.apache.iceberg.expressions.Evaluator;
@@ -125,6 +126,13 @@ public abstract class IcebergScanConfig implements Serializable {
     return cachedProjectedSchema;
   }
 
+  /** Returns the schema produced by the source. */
+  public org.apache.iceberg.Schema getOutputSchema() {
+    return getIncludeChangelogMetadata()
+        ? ChangelogUtil.changelogSchema(getProjectedSchema())
+        : getProjectedSchema();
+  }
+
   /**
    * Returns a Schema that includes all the fields required for a successful read. This includes
    * explicitly selected fields and fields referenced in the filter statement.
@@ -209,6 +217,9 @@ public abstract class IcebergScanConfig implements Serializable {
   public abstract boolean getUseCdc();
 
   @Pure
+  public abstract boolean getIncludeChangelogMetadata();
+
+  @Pure
   public abstract @Nullable Boolean getStreaming();
 
   @Pure
@@ -244,6 +255,7 @@ public abstract class IcebergScanConfig implements Serializable {
         .setFromTimestamp(null)
         .setToTimestamp(null)
         .setUseCdc(false)
+        .setIncludeChangelogMetadata(false)
         .setStreaming(null)
         .setPollInterval(null)
         .setStartingStrategy(null)
@@ -298,6 +310,8 @@ public abstract class IcebergScanConfig implements Serializable {
     public abstract Builder setStartingStrategy(@Nullable StartingStrategy strategy);
 
     public abstract Builder setUseCdc(boolean useCdc);
+
+    public abstract Builder setIncludeChangelogMetadata(boolean includeChangelogMetadata);
 
     public abstract Builder setStreaming(@Nullable Boolean streaming);
 

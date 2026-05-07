@@ -83,6 +83,7 @@ public class IcebergSchemaTransformTranslationTest {
           .withFieldValue("catalog_name", "test-name")
           .withFieldValue("catalog_properties", CATALOG_PROPERTIES)
           .withFieldValue("config_properties", CONFIG_PROPERTIES)
+          .withFieldValue("operation", "append")
           .withFieldValue("keep", Collections.singletonList("str"))
           .build();
 

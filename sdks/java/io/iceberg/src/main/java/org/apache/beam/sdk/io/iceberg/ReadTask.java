@@ -18,6 +18,7 @@
 package org.apache.beam.sdk.io.iceberg;
 
 import com.google.auto.value.AutoValue;
+import java.util.Base64;
 import java.util.List;
 import java.util.stream.Collectors;
 import org.apache.beam.sdk.schemas.AutoValueSchema;
@@ -27,6 +28,9 @@ import org.apache.beam.sdk.schemas.SchemaRegistry;
 import org.apache.beam.sdk.schemas.annotations.DefaultSchema;
 import org.apache.beam.sdk.schemas.annotations.SchemaFieldNumber;
 import org.apache.beam.sdk.schemas.annotations.SchemaIgnore;
+import org.apache.beam.sdk.util.SerializableUtils;
+import org.apache.beam.vendor.guava.v32_1_2_jre.com.google.common.collect.ImmutableList;
+import org.apache.iceberg.ChangelogScanTask;
 import org.apache.iceberg.CombinedScanTask;
 import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.ScanTaskParser;
@@ -49,13 +53,19 @@ abstract class ReadTask {
   }
 
   private transient @MonotonicNonNull List<FileScanTask> cachedFileScanTask;
+  private transient @MonotonicNonNull List<ChangelogScanTask> cachedChangelogScanTasks;
 
   static Builder builder() {
-    return new AutoValue_ReadTask.Builder();
+    return new AutoValue_ReadTask.Builder()
+        .setFileScanTaskJsons(ImmutableList.of())
+        .setChangelogScanTaskBase64s(ImmutableList.of());
   }
 
   @SchemaFieldNumber("0")
   abstract List<String> getFileScanTaskJsons();
+
+  @SchemaFieldNumber("1")
+  abstract List<String> getChangelogScanTaskBase64s();
 
   @SchemaIgnore
   List<FileScanTask> getFileScanTasks() {
@@ -69,10 +79,41 @@ abstract class ReadTask {
   }
 
   @SchemaIgnore
+  List<ChangelogScanTask> getChangelogScanTasks() {
+    if (cachedChangelogScanTasks == null) {
+      cachedChangelogScanTasks =
+          getChangelogScanTaskBase64s().stream()
+              .map(
+                  encodedBytes ->
+                      (ChangelogScanTask)
+                          SerializableUtils.deserializeFromByteArray(
+                              Base64.getDecoder().decode(encodedBytes), "ChangelogScanTask"))
+              .collect(Collectors.toList());
+    }
+    return cachedChangelogScanTasks;
+  }
+
+  @SchemaIgnore
+  boolean isChangelogTask() {
+    return !getChangelogScanTaskBase64s().isEmpty();
+  }
+
+  @SchemaIgnore
+  long getTaskCount() {
+    return isChangelogTask() ? getChangelogScanTaskBase64s().size() : getFileScanTaskJsons().size();
+  }
+
+  @SchemaIgnore
   long getSize(long from, long to) {
-    return getFileScanTasks().subList((int) from, (int) to).stream()
-        .mapToLong(FileScanTask::length)
-        .sum();
+    if (isChangelogTask()) {
+      return getChangelogScanTasks().subList((int) from, (int) to).stream()
+          .mapToLong(ChangelogScanTask::sizeBytes)
+          .sum();
+    } else {
+      return getFileScanTasks().subList((int) from, (int) to).stream()
+          .mapToLong(FileScanTask::length)
+          .sum();
+    }
   }
 
   @AutoValue.Builder
@@ -87,6 +128,16 @@ abstract class ReadTask {
               .collect(Collectors.toList());
       return setFileScanTaskJsons(fileScanTaskJsons);
     }
+
+    @SchemaIgnore
+    Builder setChangelogScanTask(ChangelogScanTask changelogScanTask) {
+      return setChangelogScanTaskBase64s(
+          ImmutableList.of(
+              Base64.getEncoder()
+                  .encodeToString(SerializableUtils.serializeToByteArray(changelogScanTask))));
+    }
+
+    abstract Builder setChangelogScanTaskBase64s(List<String> encodedBytes);
 
     abstract ReadTask build();
   }

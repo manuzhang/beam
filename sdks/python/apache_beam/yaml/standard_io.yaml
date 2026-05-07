@@ -392,6 +392,7 @@
         filter: 'filter'
         from_snapshot: 'from_snapshot'
         from_timestamp: 'from_timestamp'
+        include_changelog_metadata: 'include_changelog_metadata'
         keep: 'keep'
         poll_interval_seconds: 'poll_interval_seconds'
         starting_strategy: 'starting_strategy'
@@ -427,4 +428,3 @@
         'IcebergAddFiles': 'beam:schematransform:iceberg_add_files:v1'
       config:
         gradle_target: 'sdks:java:io:expansion-service:shadowJar'
-

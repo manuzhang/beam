@@ -556,6 +556,7 @@ def write_to_iceberg(
     catalog_name: Optional[str] = None,
     catalog_properties: Optional[Mapping[str, str]] = None,
     config_properties: Optional[Mapping[str, str]] = None,
+    operation: Optional[str] = None,
     partition_fields: Optional[Iterable[str]] = None,
     table_properties: Optional[Mapping[str, str]] = None,
     triggering_frequency_seconds: Optional[int] = None,
@@ -586,6 +587,8 @@ def write_to_iceberg(
       CatalogUtil in the Apache Iceberg documentation.
     config_properties: An optional set of Hadoop configuration properties.
       For more information, see CatalogUtil in the Apache Iceberg documentation.
+    operation: The Iceberg write operation to perform. Only append is supported.
+      Defaults to append.
     partition_fields: Fields used to create a partition spec that is applied
       when tables are created. For a field 'foo', the available partition
       transforms are:
@@ -630,6 +633,7 @@ def write_to_iceberg(
           catalog_name=catalog_name,
           catalog_properties=catalog_properties,
           config_properties=config_properties,
+          operation=operation,
           partition_fields=partition_fields,
           table_properties=table_properties,
           triggering_frequency_seconds=triggering_frequency_seconds,

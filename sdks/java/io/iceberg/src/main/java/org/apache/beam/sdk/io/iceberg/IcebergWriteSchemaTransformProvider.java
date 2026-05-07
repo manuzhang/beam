@@ -57,6 +57,7 @@ public class IcebergWriteSchemaTransformProvider
 
   static final String INPUT_TAG = "input";
   static final String SNAPSHOTS_TAG = "snapshots";
+  private static final String APPEND_OPERATION = "append";
 
   static final Schema OUTPUT_SCHEMA =
       Schema.builder()
@@ -91,6 +92,12 @@ public class IcebergWriteSchemaTransformProvider
 
     @SchemaFieldDescription("Properties passed to the Hadoop Configuration.")
     public abstract @Nullable Map<String, String> getConfigProperties();
+
+    @SchemaFieldDescription(
+        "The Iceberg write operation to perform. Supported operations:\n"
+            + "- append: append incoming rows as new data files (default).\n\n"
+            + "Delete, update, and merge operations are not supported yet.")
+    public abstract @Nullable String getOperation();
 
     @SchemaFieldDescription(
         "For a streaming pipeline, sets the frequency at which snapshots are produced.")
@@ -168,6 +175,8 @@ public class IcebergWriteSchemaTransformProvider
 
       public abstract Builder setConfigProperties(Map<String, String> confProperties);
 
+      public abstract Builder setOperation(String operation);
+
       public abstract Builder setTriggeringFrequencySeconds(Integer triggeringFrequencySeconds);
 
       public abstract Builder setDirectWriteByteLimit(Integer directWriteByteLimit);
@@ -224,6 +233,7 @@ public class IcebergWriteSchemaTransformProvider
     private final Configuration configuration;
 
     IcebergWriteSchemaTransform(Configuration configuration) {
+      validateOperation(configuration.getOperation());
       this.configuration = configuration;
     }
 
@@ -289,6 +299,17 @@ public class IcebergWriteSchemaTransformProvider
               .setRowSchema(OUTPUT_SCHEMA);
 
       return PCollectionRowTuple.of(SNAPSHOTS_TAG, snapshots);
+    }
+
+    private static void validateOperation(@Nullable String operation) {
+      if (operation == null || APPEND_OPERATION.equalsIgnoreCase(operation)) {
+        return;
+      }
+
+      throw new IllegalArgumentException(
+          String.format(
+              "Unsupported Iceberg write operation '%s'. Only '%s' is supported.",
+              operation, APPEND_OPERATION));
     }
 
     @VisibleForTesting
