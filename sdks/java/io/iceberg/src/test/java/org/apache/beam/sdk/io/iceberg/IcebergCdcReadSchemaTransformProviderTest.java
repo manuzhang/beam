@@ -37,6 +37,9 @@ import org.apache.beam.sdk.values.PCollectionRowTuple;
 import org.apache.beam.sdk.values.Row;
 import org.apache.beam.vendor.guava.v32_1_2_jre.com.google.common.collect.Lists;
 import org.apache.iceberg.CatalogUtil;
+import org.apache.iceberg.ChangelogOperation;
+import org.apache.iceberg.ChangelogUtil;
+import org.apache.iceberg.DataFile;
 import org.apache.iceberg.Snapshot;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.catalog.TableIdentifier;
@@ -73,6 +76,7 @@ public class IcebergCdcReadSchemaTransformProviderTest {
             .withFieldValue("to_timestamp", 456L)
             .withFieldValue("starting_strategy", "earliest")
             .withFieldValue("poll_interval_seconds", 789)
+            .withFieldValue("include_changelog_metadata", true)
             .build();
 
     new IcebergCdcReadSchemaTransformProvider().from(config);
@@ -118,6 +122,76 @@ public class IcebergCdcReadSchemaTransformProviderTest {
   }
 
   @Test
+  public void testChangelogScanWithDeletedDataFileMetadata() throws Exception {
+    String identifier = "default.table_" + Long.toString(UUID.randomUUID().hashCode(), 16);
+    TableIdentifier tableId = TableIdentifier.parse(identifier);
+
+    Table simpleTable = warehouse.createTable(tableId, TestFixtures.SCHEMA);
+    List<Record> records = TestFixtures.FILE1SNAPSHOT1;
+    DataFile dataFile =
+        warehouse.writeRecords(
+            "changelog-" + Long.toString(UUID.randomUUID().hashCode(), 16) + ".parquet",
+            simpleTable.schema(),
+            records);
+
+    simpleTable.newFastAppend().appendFile(dataFile).commit();
+    Snapshot appendSnapshot = simpleTable.currentSnapshot();
+    simpleTable.newDelete().deleteFile(dataFile).commit();
+    Snapshot deleteSnapshot = simpleTable.currentSnapshot();
+
+    Map<String, String> properties = new HashMap<>();
+    properties.put("type", CatalogUtil.ICEBERG_CATALOG_TYPE_HADOOP);
+    properties.put("warehouse", warehouse.location);
+
+    Configuration readConfig =
+        Configuration.builder()
+            .setTable(identifier)
+            .setCatalogName("name")
+            .setCatalogProperties(properties)
+            .setStartingStrategy("earliest")
+            .setToSnapshot(deleteSnapshot.snapshotId())
+            .setIncludeChangelogMetadata(true)
+            .build();
+
+    Schema changelogSchema =
+        IcebergUtils.icebergSchemaToBeamSchema(ChangelogUtil.changelogSchema(TestFixtures.SCHEMA));
+    Schema dataSchema = IcebergUtils.icebergSchemaToBeamSchema(TestFixtures.SCHEMA);
+    List<Row> expectedRows =
+        Lists.newArrayList(
+            records.stream()
+                .map(
+                    record ->
+                        changelogRow(
+                            dataSchema,
+                            changelogSchema,
+                            record,
+                            ChangelogOperation.INSERT.name(),
+                            0,
+                            appendSnapshot.snapshotId()))
+                .collect(Collectors.toList()));
+    expectedRows.addAll(
+        records.stream()
+            .map(
+                record ->
+                    changelogRow(
+                        dataSchema,
+                        changelogSchema,
+                        record,
+                        ChangelogOperation.DELETE.name(),
+                        1,
+                        deleteSnapshot.snapshotId()))
+            .collect(Collectors.toList()));
+
+    PCollection<Row> output =
+        PCollectionRowTuple.empty(testPipeline)
+            .apply(new IcebergCdcReadSchemaTransformProvider().from(readConfig))
+            .getSinglePCollection();
+
+    PAssert.that(output).containsInAnyOrder(expectedRows);
+    testPipeline.run();
+  }
+
+  @Test
   public void testStreamingReadUsingManagedTransform() throws Exception {
     String identifier = "default.table_" + Long.toString(UUID.randomUUID().hashCode(), 16);
     TableIdentifier tableId = TableIdentifier.parse(identifier);
@@ -158,5 +232,19 @@ public class IcebergCdcReadSchemaTransformProviderTest {
     PAssert.that(output).containsInAnyOrder(expectedRows);
 
     testPipeline.run();
+  }
+
+  private static Row changelogRow(
+      Schema dataSchema,
+      Schema changelogSchema,
+      Record record,
+      String operation,
+      int changeOrdinal,
+      long commitSnapshotId) {
+    Row dataRow = IcebergUtils.icebergRecordToBeamRow(dataSchema, record);
+    return Row.withSchema(changelogSchema)
+        .addValues(dataRow.getValues())
+        .addValues(operation, changeOrdinal, commitSnapshotId)
+        .build();
   }
 }

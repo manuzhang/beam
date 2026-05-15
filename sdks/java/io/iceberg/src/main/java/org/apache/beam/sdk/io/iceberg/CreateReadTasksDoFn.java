@@ -21,14 +21,16 @@ import static org.apache.beam.sdk.util.Preconditions.checkStateNotNull;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutionException;
+import java.util.stream.Collectors;
 import org.apache.beam.sdk.metrics.Counter;
 import org.apache.beam.sdk.metrics.Metrics;
 import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.values.KV;
-import org.apache.iceberg.CombinedScanTask;
-import org.apache.iceberg.DataOperations;
-import org.apache.iceberg.IncrementalAppendScan;
+import org.apache.iceberg.ChangelogScanTask;
+import org.apache.iceberg.IncrementalChangelogScan;
+import org.apache.iceberg.ScanTaskGroup;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.expressions.Expression;
 import org.apache.iceberg.io.CloseableIterable;
@@ -39,7 +41,7 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Scans the given snapshot and creates multiple {@link ReadTask}s. Each task represents a portion
- * of a data file that was appended within the snapshot range.
+ * of a data file that changed within the snapshot range.
  */
 class CreateReadTasksDoFn
     extends DoFn<KV<String, List<SnapshotInfo>>, KV<ReadTaskDescriptor, ReadTask>> {
@@ -65,57 +67,60 @@ class CreateReadTasksDoFn
     // force refresh because the table must be updated before scanning snapshots
     Table table = TableCache.getRefreshed(element.getKey());
 
-    // scan snapshots individually and assign commit timestamp to files
-    for (SnapshotInfo snapshot : element.getValue()) {
-      @Nullable Long fromSnapshot = snapshot.getParentId();
-      long toSnapshot = snapshot.getSnapshotId();
-
-      if (!DataOperations.APPEND.equals(snapshot.getOperation())) {
-        LOG.info(
-            "Skipping non-append snapshot of operation '{}'. Sequence number: {}, id: {}",
-            snapshot.getOperation(),
-            snapshot.getSequenceNumber(),
-            snapshot.getSnapshotId());
-      }
-
-      LOG.info("Planning to scan snapshot {}", toSnapshot);
-      IncrementalAppendScan scan =
-          table
-              .newIncrementalAppendScan()
-              .toSnapshot(toSnapshot)
-              .project(scanConfig.getProjectedSchema());
-      if (fromSnapshot != null) {
-        scan = scan.fromSnapshotExclusive(fromSnapshot);
-      }
-      @Nullable Expression filter = scanConfig.getFilter();
-      if (filter != null) {
-        scan = scan.filter(filter);
-      }
-
-      createAndOutputReadTasks(scan, snapshot, out);
+    List<SnapshotInfo> snapshots = element.getValue();
+    if (snapshots.isEmpty()) {
+      return;
     }
+
+    @Nullable Long fromSnapshot = snapshots.get(0).getParentId();
+    long toSnapshot = snapshots.get(snapshots.size() - 1).getSnapshotId();
+    LOG.info("Planning to scan changelog from snapshot {} to {}", fromSnapshot, toSnapshot);
+
+    IncrementalChangelogScan scan =
+        table
+            .newIncrementalChangelogScan()
+            .toSnapshot(toSnapshot)
+            .project(scanConfig.getProjectedSchema());
+    if (fromSnapshot != null) {
+      scan = scan.fromSnapshotExclusive(fromSnapshot);
+    }
+    @Nullable Expression filter = scanConfig.getFilter();
+    if (filter != null) {
+      scan = scan.filter(filter);
+    }
+
+    createAndOutputReadTasks(scan, snapshots, out);
   }
 
   private void createAndOutputReadTasks(
-      IncrementalAppendScan scan,
-      SnapshotInfo snapshot,
+      IncrementalChangelogScan scan,
+      List<SnapshotInfo> snapshots,
       OutputReceiver<KV<ReadTaskDescriptor, ReadTask>> out)
       throws IOException {
     int numTasks = 0;
-    try (CloseableIterable<CombinedScanTask> combinedScanTasks = scan.planTasks()) {
-      for (CombinedScanTask combinedScanTask : combinedScanTasks) {
-        ReadTask task = ReadTask.builder().setCombinedScanTask(combinedScanTask).build();
-        ReadTaskDescriptor descriptor =
-            ReadTaskDescriptor.builder()
-                .setTableIdentifierString(checkStateNotNull(snapshot.getTableIdentifierString()))
-                .build();
+    Map<Long, SnapshotInfo> snapshotsById =
+        snapshots.stream().collect(Collectors.toMap(SnapshotInfo::getSnapshotId, s -> s));
+    try (CloseableIterable<ScanTaskGroup<ChangelogScanTask>> scanTaskGroups = scan.planTasks()) {
+      for (ScanTaskGroup<ChangelogScanTask> scanTaskGroup : scanTaskGroups) {
+        for (ChangelogScanTask changelogScanTask : scanTaskGroup.tasks()) {
+          SnapshotInfo snapshot =
+              checkStateNotNull(
+                  snapshotsById.get(changelogScanTask.commitSnapshotId()),
+                  "Could not find snapshot %s in planned changelog range.",
+                  changelogScanTask.commitSnapshotId());
+          ReadTask task = ReadTask.builder().setChangelogScanTask(changelogScanTask).build();
+          ReadTaskDescriptor descriptor =
+              ReadTaskDescriptor.builder()
+                  .setTableIdentifierString(checkStateNotNull(snapshot.getTableIdentifierString()))
+                  .build();
 
-        out.outputWithTimestamp(
-            KV.of(descriptor, task), Instant.ofEpochMilli(snapshot.getTimestampMillis()));
-        numTasks += combinedScanTask.tasks().size();
+          out.outputWithTimestamp(
+              KV.of(descriptor, task), Instant.ofEpochMilli(snapshot.getTimestampMillis()));
+          numTasks++;
+        }
       }
     }
     totalScanTasks.inc(numTasks);
-    LOG.info("Snapshot {} produced {} read tasks.", snapshot.getSnapshotId(), numTasks);
+    LOG.info("Snapshot range produced {} changelog read tasks.", numTasks);
   }
 }

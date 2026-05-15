@@ -25,6 +25,7 @@ import static org.apache.iceberg.util.DateTimeUtil.dateFromDays;
 import static org.apache.iceberg.util.DateTimeUtil.timestampFromMicros;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assume.assumeTrue;
 
 import java.time.LocalDate;
@@ -125,6 +126,7 @@ public class IcebergWriteSchemaTransformProviderTest {
             .setTable(identifier)
             .setCatalogName("name")
             .setCatalogProperties(properties)
+            .setOperation("append")
             .setDistributionMode(distributionMode.name())
             .build();
 
@@ -152,6 +154,27 @@ public class IcebergWriteSchemaTransformProviderTest {
     List<Record> writtenRecords = ImmutableList.copyOf(IcebergGenerics.read(table).build());
 
     assertThat(writtenRecords, Matchers.containsInAnyOrder(TestFixtures.FILE1SNAPSHOT1.toArray()));
+  }
+
+  @Test
+  public void testRejectsUnsupportedWriteOperation() {
+    String identifier = "default.table_" + Long.toString(UUID.randomUUID().hashCode(), 16);
+
+    Configuration config =
+        Configuration.builder()
+            .setTable(identifier)
+            .setCatalogName("name")
+            .setCatalogProperties(
+                ImmutableMap.of(
+                    "type", CatalogUtil.ICEBERG_CATALOG_TYPE_HADOOP,
+                    "warehouse", warehouse.location))
+            .setOperation("delete")
+            .setDistributionMode(distributionMode.name())
+            .build();
+
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> new IcebergWriteSchemaTransformProvider().from(config));
   }
 
   @Test

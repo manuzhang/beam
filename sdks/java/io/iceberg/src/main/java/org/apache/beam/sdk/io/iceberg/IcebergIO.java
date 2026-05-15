@@ -170,6 +170,11 @@ import org.joda.time.Duration;
  *
  * <h2>Writing to Tables</h2>
  *
+ * <h3>Write Operations</h3>
+ *
+ * <p>The Iceberg sink currently supports append-only writes. Configure <b>{@code operation:
+ * append}</b> explicitly, or omit <b>{@code operation}</b> to use append mode by default.
+ *
  * <h3>Creating Tables</h3>
  *
  * <p>If an Iceberg table does not exist at the time of writing, this connector will automatically
@@ -308,7 +313,10 @@ import org.joda.time.Duration;
  *     .getSinglePCollection();
  * }</pre>
  *
- * <p><b>Note</b>: This reads <b>append-only</b> snapshots. Full CDC is not supported yet.
+ * <p>By default, the CDC source outputs only table columns. To distinguish inserts and deletes, set
+ * <b>{@code include_changelog_metadata=true}</b> to include Iceberg changelog metadata fields:
+ * <b>{@code _change_type}</b>, <b>{@code _change_ordinal}</b>, and <b>{@code
+ * _commit_snapshot_id}</b>.
  *
  * <p>The CDC <b>streaming</b> source (enabled with {@code streaming=true}) continuously polls the
  * table for new snapshots, with a default interval of 60 seconds. This can be overridden with
@@ -533,6 +541,7 @@ public class IcebergIO {
     return new AutoValue_IcebergIO_ReadRows.Builder()
         .setCatalogConfig(catalogConfig)
         .setUseCdc(false)
+        .setIncludeChangelogMetadata(false)
         .build();
   }
 
@@ -548,6 +557,8 @@ public class IcebergIO {
     abstract @Nullable TableIdentifier getTableIdentifier();
 
     abstract boolean getUseCdc();
+
+    abstract boolean getIncludeChangelogMetadata();
 
     abstract @Nullable Long getFromSnapshot();
 
@@ -579,6 +590,8 @@ public class IcebergIO {
 
       abstract Builder setUseCdc(boolean useCdc);
 
+      abstract Builder setIncludeChangelogMetadata(boolean includeChangelogMetadata);
+
       abstract Builder setFromSnapshot(@Nullable Long fromSnapshot);
 
       abstract Builder setToSnapshot(@Nullable Long toSnapshot);
@@ -604,6 +617,14 @@ public class IcebergIO {
 
     public ReadRows withCdc() {
       return toBuilder().setUseCdc(true).build();
+    }
+
+    /**
+     * Includes Iceberg changelog metadata fields in CDC output rows: {@code _change_type}, {@code
+     * _change_ordinal}, and {@code _commit_snapshot_id}.
+     */
+    public ReadRows withChangelogMetadata() {
+      return toBuilder().setIncludeChangelogMetadata(true).build();
     }
 
     public ReadRows from(TableIdentifier tableIdentifier) {
@@ -671,6 +692,7 @@ public class IcebergIO {
               .setStreaming(getStreaming())
               .setPollInterval(getPollInterval())
               .setUseCdc(getUseCdc())
+              .setIncludeChangelogMetadata(getIncludeChangelogMetadata())
               .setKeepFields(getKeep())
               .setDropFields(getDrop())
               .setFilterString(getFilter())

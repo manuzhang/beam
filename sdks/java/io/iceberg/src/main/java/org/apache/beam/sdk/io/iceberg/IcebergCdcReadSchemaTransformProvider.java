@@ -40,6 +40,7 @@ import org.apache.beam.sdk.values.PCollection;
 import org.apache.beam.sdk.values.PCollectionRowTuple;
 import org.apache.beam.sdk.values.Row;
 import org.apache.beam.vendor.guava.v32_1_2_jre.com.google.common.base.Enums;
+import org.apache.beam.vendor.guava.v32_1_2_jre.com.google.common.base.MoreObjects;
 import org.apache.beam.vendor.guava.v32_1_2_jre.com.google.common.base.Optional;
 import org.apache.iceberg.catalog.TableIdentifier;
 import org.checkerframework.checker.nullness.qual.Nullable;
@@ -119,6 +120,9 @@ public class IcebergCdcReadSchemaTransformProvider
               .keeping(configuration.getKeep())
               .dropping(configuration.getDrop())
               .withFilter(configuration.getFilter());
+      if (MoreObjects.firstNonNull(configuration.getIncludeChangelogMetadata(), false)) {
+        readRows = readRows.withChangelogMetadata();
+      }
 
       @Nullable Integer pollIntervalSeconds = configuration.getPollIntervalSeconds();
       if (pollIntervalSeconds != null) {
@@ -181,6 +185,11 @@ public class IcebergCdcReadSchemaTransformProvider
     abstract @Nullable Integer getPollIntervalSeconds();
 
     @SchemaFieldDescription(
+        "When true, CDC output rows include Iceberg changelog metadata fields: "
+            + "\"_change_type\", \"_change_ordinal\", and \"_commit_snapshot_id\".")
+    abstract @Nullable Boolean getIncludeChangelogMetadata();
+
+    @SchemaFieldDescription(
         "SQL-like predicate to filter data at scan time. Example: \"id > 5 AND status = 'ACTIVE'\". "
             + "Uses Apache Calcite syntax: https://calcite.apache.org/docs/reference.html")
     @Nullable
@@ -217,6 +226,8 @@ public class IcebergCdcReadSchemaTransformProvider
       abstract Builder setPollIntervalSeconds(Integer pollInterval);
 
       abstract Builder setStreaming(Boolean streaming);
+
+      abstract Builder setIncludeChangelogMetadata(Boolean includeChangelogMetadata);
 
       abstract Builder setKeep(List<String> keep);
 
